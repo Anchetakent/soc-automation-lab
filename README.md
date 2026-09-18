@@ -1,8 +1,30 @@
 # SOC Automation Lab
 
-End-to-end SOC automation lab integrating **Sysmon, Wazuh, Shuffle SOAR, VirusTotal, and TheHive** to detect suspicious Windows activity, enrich indicators, create investigation alerts, and notify a SOC analyst.
+End-to-end SOC automation lab integrating **Sysmon, Wazuh, Shuffle SOAR, VirusTotal, and TheHive** to detect suspicious Windows activity, enrich indicators, create security alerts, and notify a SOC analyst.
 
-This project uses a controlled **Mimikatz detection scenario** to demonstrate a complete SOC workflow from endpoint telemetry collection to automated incident handling.
+The project demonstrates a complete defensive workflow using a controlled **Mimikatz detection scenario** in an isolated Windows lab.
+
+## Detection Pipeline
+
+```text
+Windows 10 + Sysmon
+        ↓
+    Wazuh Agent
+        ↓
+  Wazuh Manager
+        ↓
+Custom Detection Rule
+        ↓
+    Shuffle SOAR
+        ↓
+  SHA256 Extraction
+        ↓
+VirusTotal Enrichment
+        ↓
+   TheHive Alert
+        ↓
+ Email Notification
+```
 
 ---
 
@@ -10,160 +32,78 @@ This project uses a controlled **Mimikatz detection scenario** to demonstrate a 
 
 ![SOC Automation Architecture](screenshots/00-architecture.png)
 
-### Detection Pipeline
+### Environment
 
-```text
-Windows 10 VM
-(Sysmon + Wazuh Agent)
-        │
-        │ Sysmon Telemetry
-        ▼
-Wazuh Manager
-(Custom Detection Rule)
-        │
-        │ Mimikatz Detection
-        ▼
-Shuffle SOAR
-        │
-        ├── SHA256 Extraction
-        │
-        ▼
-VirusTotal
-        │
-        │ Threat Intelligence Enrichment
-        ▼
-Shuffle
-        │
-        ├── Create Alert ─────► TheHive
-        │
-        └── Send Email ───────► SOC Analyst
-```
+- **Endpoint:** Windows 10 VM running Sysmon and Wazuh Agent
+- **SIEM/XDR:** Wazuh hosted on Microsoft Azure
+- **SOAR:** Shuffle
+- **Threat Intelligence:** VirusTotal
+- **Alert Management:** TheHive hosted on Microsoft Azure
+- **Cloud Infrastructure:** Azure Ubuntu VMs
+- **Virtualization:** Oracle VirtualBox
 
-The completed workflow follows a basic SOC process:
+The completed workflow follows:
 
 **Detect → Enrich → Investigate → Notify**
 
 ---
 
-## Project Objectives
+## What I Built
 
-The goal of this project was to build a functional SOC environment capable of:
+This project was designed to simulate a small SOC environment capable of:
 
-- Collecting Windows endpoint telemetry using Sysmon
-- Forwarding endpoint logs to a centralized Wazuh SIEM
-- Detecting suspicious process execution
-- Creating a custom Wazuh detection rule
-- Mapping detections to MITRE ATT&CK
-- Forwarding high-severity alerts to Shuffle SOAR
-- Extracting SHA256 indicators from security events
+- Collecting detailed Windows telemetry with Sysmon
+- Forwarding endpoint events to Wazuh
+- Searching and investigating raw security events
+- Creating a custom Wazuh rule to detect Mimikatz
+- Mapping the detection to MITRE ATT&CK
+- Forwarding high-severity alerts to Shuffle
+- Extracting SHA256 hashes from Wazuh events
 - Enriching file hashes using VirusTotal
 - Automatically creating alerts in TheHive
 - Sending email notifications to a SOC analyst
 
 ---
 
-## Technologies Used
+## Technology Stack
 
 | Technology | Purpose |
 |---|---|
-| Microsoft Azure | Cloud infrastructure |
-| Ubuntu Server | Wazuh and TheHive servers |
-| Windows 10 | Monitored endpoint |
-| Oracle VirtualBox | Local endpoint virtualization |
-| Wazuh | SIEM, log analysis, and detection |
-| Sysmon | Detailed Windows endpoint telemetry |
-| Shuffle | SOAR and workflow automation |
+| Wazuh | SIEM/XDR, log analysis, detection |
+| Sysmon | Windows endpoint telemetry |
+| Shuffle | SOAR workflow automation |
 | VirusTotal | Threat intelligence enrichment |
-| TheHive | Alert and incident management |
-| Elasticsearch / Wazuh Indexer | Security event indexing |
+| TheHive | Security alert management |
+| Microsoft Azure | Cloud infrastructure |
+| Windows 10 | Monitored endpoint |
+| Ubuntu Server | Wazuh and TheHive servers |
 | Filebeat | Event forwarding |
-| Cassandra | TheHive database backend |
-| PowerShell | Windows administration and testing |
-| MITRE ATT&CK | Detection technique mapping |
-| Regex | SHA256 extraction |
-| REST APIs | Platform integrations |
+| Wazuh Indexer | Event indexing and search |
+| Cassandra / Elasticsearch | TheHive backend services |
+| MITRE ATT&CK | Detection mapping |
 
 ---
 
-# 1. Azure Infrastructure
+# Implementation
 
-The cloud portion of the lab was deployed in **Microsoft Azure**.
+## 1. Windows Endpoint Monitoring
 
-Two Ubuntu virtual machines were created:
+A Windows 10 virtual machine was configured with:
 
-```text
-Azure Resource Group
-│
-├── Wazuh Server
-│   └── Ubuntu Server
-│
-└── TheHive Server
-    └── Ubuntu Server
-```
-
-### Wazuh Server
-
-The Wazuh VM hosts:
-
-- Wazuh Manager
-- Wazuh Dashboard
-- Wazuh Indexer
-- Filebeat
-- Custom detection rules
-
-### TheHive Server
-
-The TheHive VM hosts:
-
-- TheHive
-- Cassandra
-- Elasticsearch
-- Java
-
-Azure Network Security Groups were configured to control inbound traffic.
-
-Important ports used during the lab:
-
-| Port | Purpose |
-|---|---|
-| 22 | SSH |
-| 443 | Wazuh Dashboard |
-| 1514 | Wazuh agent communication |
-| 1515 | Wazuh agent enrollment |
-| 9000 | TheHive web/API interface |
-
----
-
-# 2. Windows Endpoint Configuration
-
-A Windows 10 virtual machine was created using **Oracle VirtualBox**.
-
-The endpoint was configured with:
-
-- Wazuh Agent
 - Sysmon
-- Windows Event Viewer
+- Wazuh Agent
 - PowerShell
+- Windows Event logging
 
-The Wazuh agent was configured to communicate with the Wazuh Manager hosted in Azure.
+The Wazuh Agent communicates with the Wazuh Manager hosted in Azure.
 
-Initially, the agent could not connect because Azure did not allow the required Wazuh ports.
-
-Azure NSG rules were added for:
+Azure Network Security Group rules were configured for Wazuh communication, including:
 
 ```text
-TCP 1514 - Wazuh agent communication
-TCP 1515 - Wazuh agent enrollment
+TCP 1514 - Agent communication
+TCP 1515 - Agent enrollment
+TCP 443  - Wazuh Dashboard
 ```
-
-Connectivity was tested from the Windows VM using:
-
-```powershell
-Test-NetConnection <WAZUH_SERVER> -Port 1514
-Test-NetConnection <WAZUH_SERVER> -Port 1515
-```
-
-After restarting the Wazuh Agent service, the endpoint successfully appeared as **Active** in the Wazuh Dashboard.
 
 ### Wazuh Agent Connected
 
@@ -171,11 +111,19 @@ After restarting the Wazuh Agent service, the endpoint successfully appeared as 
 
 ---
 
-# 3. Sysmon Telemetry Collection
+## 2. Sysmon Telemetry Collection
 
-Sysmon was installed on the Windows VM to provide detailed endpoint telemetry.
+Sysmon was used to provide detailed endpoint telemetry such as:
 
-The Wazuh Agent configuration was updated to collect the Sysmon Operational event channel:
+- Process creation
+- Process access
+- Image loading
+- File creation
+- Command-line arguments
+- File hashes
+- Parent process information
+
+The Wazuh Agent was configured to collect the Sysmon Operational channel:
 
 ```xml
 <localfile>
@@ -184,97 +132,50 @@ The Wazuh Agent configuration was updated to collect the Sysmon Operational even
 </localfile>
 ```
 
-The existing Windows Application, Security, and System event collection remained enabled.
-
-Sysmon provided telemetry including:
-
-- Process creation
-- Process termination
-- Process access
-- Image and DLL loading
-- File creation
-- Registry activity
-- Command-line arguments
-- File hashes
-- Parent process information
-
 ### Sysmon Telemetry in Wazuh
 
 ![Sysmon Telemetry](screenshots/02-sysmon-telemetry.png)
 
 ---
 
-# 4. Wazuh Archive Logging
+## 3. Wazuh Archive Logging
 
-Wazuh was configured to archive all received events so that telemetry could still be investigated even if it did not trigger a detection rule.
-
-The following settings were enabled in `ossec.conf`:
+Raw event archiving was enabled so that events could still be investigated even when they did not trigger an alert.
 
 ```xml
 <logall>yes</logall>
 <logall_json>yes</logall_json>
 ```
 
-Archived events were stored in:
+Archived JSON events were stored in:
 
 ```text
 /var/ossec/logs/archives/archives.json
 ```
 
-Filebeat archive forwarding was also enabled:
-
-```yaml
-archives:
-  enabled: true
-```
-
-A new Wazuh index pattern was created:
+Filebeat archive forwarding was enabled and events were indexed under:
 
 ```text
 wazuh-archives-*
 ```
 
-This allowed raw Sysmon telemetry to be searched using Wazuh Discover.
+This allowed raw Sysmon events to be searched through Wazuh Discover.
 
 ---
 
-# 5. Controlled Detection Simulation
+## 4. Custom Mimikatz Detection
 
-A controlled **Mimikatz** execution was performed inside the isolated Windows VM.
+Mimikatz was executed inside the isolated Windows VM to generate controlled security telemetry.
 
-The purpose was to generate realistic suspicious endpoint telemetry for detection engineering and SOC automation testing.
-
-Sysmon successfully recorded activity associated with the executable.
-
-Example telemetry included:
+Sysmon captured the process execution, including information such as:
 
 ```text
-Image:
-C:\Users\<user>\Downloads\mimikatz_trunk\x64\mimikatz.exe
-
-OriginalFileName:
-mimikatz.exe
-
-Product:
-mimikatz
+Image: mimikatz.exe
+OriginalFileName: mimikatz.exe
+Product: mimikatz
 ```
 
-Sysmon produced multiple event types during testing, including:
-
-```text
-Event ID 1  - Process Create
-Event ID 5  - Process Terminated
-Event ID 7  - Image Loaded
-Event ID 10 - Process Access
-Event ID 11 - File Create
-Event ID 15 - File Stream Create
-```
-
----
-
-# 6. Custom Wazuh Detection Rule
-
-A custom Wazuh detection rule was created to detect Mimikatz execution using Sysmon Process Create telemetry.
+I created a custom Wazuh detection rule:
 
 ```xml
 <group name="sysmon,mimikatz,">
@@ -283,6 +184,7 @@ A custom Wazuh detection rule was created to detect Mimikatz execution using Sys
     <if_group>sysmon_event1</if_group>
     <field name="win.eventdata.originalFileName" type="pcre2">(?i)mimikatz\.exe</field>
     <description>Mimikatz Usage Detected</description>
+
     <mitre>
       <id>T1003</id>
     </mitre>
@@ -293,27 +195,17 @@ A custom Wazuh detection rule was created to detect Mimikatz execution using Sys
 
 The rule:
 
-- Monitors Sysmon Process Creation events
+- Monitors Sysmon Process Create events
 - Checks the executable's original filename
 - Uses case-insensitive matching
-- Generates a Level 15 Wazuh alert
-- Maps the activity to MITRE ATT&CK **T1003 - OS Credential Dumping**
+- Generates a **Level 15** Wazuh alert
+- Maps the activity to **MITRE ATT&CK T1003 - OS Credential Dumping**
 
-The rule successfully generated:
-
-```text
-Mimikatz Usage Detected
-
-Rule ID: 100002
-Rule Level: 15
-MITRE ATT&CK: T1003
-```
-
-### Custom Mimikatz Detection
+### Detection Result
 
 ![Mimikatz Detection](screenshots/03-mimikatz-detection.png)
 
-The sanitized detection rule is also included in:
+The custom rule is available in:
 
 ```text
 wazuh/local_rules.xml
@@ -321,13 +213,9 @@ wazuh/local_rules.xml
 
 ---
 
-# 7. Wazuh to Shuffle Integration
+## 5. Wazuh → Shuffle Integration
 
-Wazuh was integrated with **Shuffle SOAR** using a webhook.
-
-Only alerts generated by the custom Mimikatz detection rule were forwarded to the workflow.
-
-Example configuration:
+The custom Wazuh alert was forwarded to Shuffle using a webhook integration.
 
 ```xml
 <integration>
@@ -338,139 +226,76 @@ Example configuration:
 </integration>
 ```
 
-The actual webhook URL is intentionally excluded from this repository.
+Only events matching Rule `100002` were sent into this automation workflow.
 
-When Wazuh Rule `100002` fires, Wazuh sends the alert JSON to Shuffle.
+The actual webhook URL is excluded from the repository.
 
 ---
 
-# 8. Shuffle SOAR Workflow
+## 6. Shuffle SOAR Automation
 
-Shuffle was used to automate the response workflow.
-
-The workflow performs the following actions:
+Shuffle orchestrates the automated workflow after receiving the Wazuh alert.
 
 ```text
 Wazuh Alert
-    │
-    ▼
+     ↓
 Shuffle Webhook
-    │
-    ▼
-SHA256 Regex Extraction
-    │
-    ▼
-VirusTotal Hash Lookup
-    │
-    ├────────► TheHive Alert Creation
-    │
-    └────────► SOC Analyst Email Notification
+     ↓
+Extract SHA256
+     ↓
+VirusTotal Lookup
+     ↓
+Create TheHive Alert
+     ↓
+Notify SOC Analyst
 ```
 
-### Shuffle Workflow
+### Workflow
 
 ![Shuffle Workflow](screenshots/04-shuffle-workflow.png)
 
 ---
 
-# 9. SHA256 Extraction
+## 7. SHA256 Extraction & VirusTotal Enrichment
 
-The Wazuh alert contains several file hash formats.
+The Wazuh event contained multiple file hashes.
 
-Shuffle was configured to extract the SHA256 value using a regex capture group.
+Shuffle extracts the SHA256 value using:
 
 ```regex
 SHA256=([0-9A-Fa-f]{64})
 ```
 
-The extracted hash was then passed to VirusTotal for threat intelligence enrichment.
+The extracted hash is then submitted to VirusTotal for threat intelligence enrichment.
 
-During testing, the regex action returned an object containing values such as:
-
-```text
-success
-group_0
-found
-```
-
-Initially, the entire regex result object was passed to VirusTotal, which resulted in an invalid lookup.
-
-The workflow was corrected to pass only the extracted SHA256 value.
-
----
-
-# 10. VirusTotal Threat Intelligence Enrichment
-
-The extracted SHA256 hash was automatically submitted to VirusTotal.
-
-Shuffle used the VirusTotal action:
-
-```text
-GET - Get a hash report
-```
-
-A successful request returned:
+A successful lookup returned:
 
 ```text
 HTTP 200
 ```
 
-This stage allows the workflow to automatically enrich the detected indicator without requiring the analyst to manually search VirusTotal.
-
-### VirusTotal Enrichment
+### VirusTotal Result
 
 ![VirusTotal Enrichment](screenshots/05-virustotal-enrichment.png)
 
+This allows the SOC workflow to automatically retrieve threat intelligence instead of requiring a manual hash lookup.
+
 ---
 
-# 11. TheHive Integration
+## 8. Automated TheHive Alert
 
 TheHive was deployed on a separate Azure Ubuntu VM.
 
-A dedicated **SOAR service account** was created in TheHive.
+A dedicated SOAR service account and API key were configured so Shuffle could automatically create security alerts.
 
-API key authentication was enabled so Shuffle could interact with the TheHive API.
-
-Shuffle uses the:
-
-```text
-Create Alert
-```
-
-action to generate an investigation alert automatically.
-
-Example alert body:
-
-```json
-{
-  "description": "$exec.title",
-  "flag": false,
-  "pap": 2,
-  "severity": "$exec.severity",
-  "source": "$exec.pretext",
-  "sourceRef": "$exec.rule_id-$exec.id",
-  "status": "New",
-  "summary": "Mimikatz activity detected on host: $exec.text.win.system.computer",
-  "tags": ["T1003"],
-  "title": "$exec.title",
-  "tlp": 2,
-  "type": "internal"
-}
-```
-
-TheHive successfully accepted the automated request:
+The successful API request returned:
 
 ```text
 POST /api/v1/alert
-
 HTTP 201 Created
 ```
 
-### TheHive Alert
-
-![TheHive Alert](screenshots/06-thehive-alert.png)
-
-The generated alert included information such as:
+The generated alert included:
 
 ```text
 Title: Mimikatz Usage Detected
@@ -481,15 +306,17 @@ Status: New
 Host: windows
 ```
 
+### TheHive Alert
+
+![TheHive Alert](screenshots/06-thehive-alert.png)
+
 ---
 
-# 12. SOC Analyst Email Notification
+## 9. SOC Analyst Notification
 
-The final stage of the Shuffle workflow sends an email notification to the SOC analyst.
+The final stage of the workflow sends an email notification to the SOC analyst.
 
-This ensures that the detection does not remain only inside the SIEM or case management platform.
-
-The analyst is automatically notified that suspicious activity was detected and that an investigation alert was created.
+This demonstrates that the detection is automatically escalated beyond the SIEM and brought to the analyst's attention.
 
 ### Email Notification
 
@@ -497,189 +324,40 @@ The analyst is automatically notified that suspicious activity was detected and 
 
 ---
 
-# Final SOC Automation Workflow
+# Key Troubleshooting & Lessons Learned
 
-The completed pipeline is:
+Building the lab required troubleshooting across multiple layers rather than only configuring security tools.
 
-```text
-Mimikatz Execution
-        │
-        ▼
-Sysmon
-        │
-        ▼
-Wazuh Agent
-        │
-        ▼
-Wazuh Manager
-        │
-        ▼
-Custom Rule 100002
-        │
-        ▼
-Shuffle Webhook
-        │
-        ▼
-SHA256 Extraction
-        │
-        ▼
-VirusTotal Enrichment
-        │
-        ▼
-TheHive Alert Creation
-        │
-        ▼
-SOC Analyst Email Notification
-```
+### Azure Networking
 
-This demonstrates a basic:
+The Windows agent initially could not communicate with the Wazuh server because the required Azure NSG rules were not configured.
 
-```text
-Detect → Enrich → Investigate → Notify
-```
-
-SOC workflow.
-
----
-
-# Troubleshooting and Lessons Learned
-
-A large part of this project involved troubleshooting communication between multiple systems.
-
-## Azure Region Restrictions
-
-The Azure student subscription initially prevented VM deployment in some regions.
-
-The Azure `allowedLocations` policy was inspected and the environment was deployed in an allowed region.
-
-This provided experience working with Azure subscription policies and regional VM availability.
-
----
-
-## SSH Private Key Permissions
-
-SSH initially rejected the Azure `.pem` private key because Windows permissions allowed additional users/groups to access the file.
-
-Windows ACL permissions were adjusted so that only the intended account could access the private SSH key.
-
-This provided practical experience with:
-
-- SSH keys
-- Windows ACLs
-- File permissions
-- Secure remote administration
-
----
-
-## Azure Networking
-
-The Windows Wazuh agent initially could not communicate with the Wazuh Manager because Azure NSG rules did not allow the required ports.
-
-Connectivity was verified using:
+Connectivity was tested using:
 
 ```powershell
 Test-NetConnection <WAZUH_SERVER> -Port 1514
 Test-NetConnection <WAZUH_SERVER> -Port 1515
 ```
 
-This helped isolate networking problems between:
+This helped isolate the problem to the network layer.
 
-```text
-Windows VM
-    ↓
-Home Network
-    ↓
-Internet
-    ↓
-Azure NSG
-    ↓
-Wazuh Manager
-```
+### Wazuh Search Troubleshooting
 
----
-
-## HTTP vs HTTPS
-
-The Wazuh Dashboard initially appeared inaccessible from the Windows VM when only the server IP was entered into the browser.
-
-Explicitly using:
-
-```text
-https://<WAZUH_SERVER>
-```
-
-correctly connected to the Wazuh Dashboard over TCP 443.
-
-This reinforced the relationship between:
-
-```text
-HTTP  → TCP 80
-HTTPS → TCP 443
-```
-
----
-
-## Linux Permissions
-
-Several Wazuh directories required elevated privileges.
-
-For example:
-
-```bash
-sudo tail -f /var/ossec/logs/archives/archives.json
-```
-
-was required to inspect archived events.
-
-This also reinforced the difference between commands that can be executed with `sudo` and shell built-ins such as `cd`.
-
----
-
-## Wazuh Discover Time Range
-
-One of the most important troubleshooting lessons occurred when Mimikatz telemetry existed in the backend but Wazuh Discover displayed:
+Mimikatz events were present in Wazuh's archive and indexer, but initially appeared as:
 
 ```text
 No Results
 ```
 
-The ingestion pipeline was initially suspected.
+in Discover.
 
-However, the events were successfully verified inside:
+The problem was the selected **time range**, not event ingestion.
 
-```text
-/var/ossec/logs/archives/archives.json
-```
+This reinforced an important SIEM troubleshooting principle:
 
-The Wazuh Indexer was then queried directly and confirmed that the Mimikatz events were already indexed.
+> No search results does not necessarily mean no logs were collected.
 
-The actual problem was the **Discover time range**.
-
-The selected time range did not include the timestamps of the generated events.
-
-This demonstrated an important SIEM troubleshooting principle:
-
-> **No search results does not necessarily mean no logs were collected.**
-
-When troubleshooting missing SIEM events, verify:
-
-- Index / data source
-- Time range
-- Time zone
-- Query
-- Filters
-- Raw event ingestion
-- Indexer storage
-
----
-
-## Wazuh Indexer Verification
-
-The Wazuh archive index was queried directly to confirm that archived events were being stored.
-
-The archive contained thousands of documents and more than one hundred Mimikatz-related events during testing.
-
-This confirmed that:
+I verified the pipeline layer-by-layer:
 
 ```text
 Sysmon
@@ -693,47 +371,25 @@ archives.json
 Filebeat
    ↓
 Wazuh Indexer
+   ↓
+Discover
 ```
 
-was functioning correctly.
+### Shuffle Data Handling
 
----
+The SHA256 regex action originally returned a structured object rather than a single hash.
 
-## Shuffle Rule ID Configuration
-
-The initial Wazuh-to-Shuffle integration used an incorrect Wazuh Rule ID.
-
-Because the Rule ID did not exactly match the custom detection rule, Shuffle did not receive the expected Mimikatz alert.
-
-After correcting the integration to use:
-
-```text
-100002
-```
-
-and restarting Wazuh, the webhook successfully received the alert.
-
----
-
-## Shuffle Variable Handling
-
-The SHA256 extraction action returned a structured object rather than only a single hash value.
-
-Passing the entire object into VirusTotal resulted in an unsuccessful lookup.
+Passing the entire object to VirusTotal caused the lookup to fail.
 
 The workflow was corrected to pass only the extracted SHA256 value.
 
-This provided practical experience handling structured JSON data inside a SOAR workflow.
+### Shuffle → TheHive Connectivity
 
----
+TheHive TCP `9000` was initially restricted to my administrator IP.
 
-## Shuffle to TheHive Networking
+Because Shuffle Cloud originated from another network, the API request timed out.
 
-TheHive port `9000` was originally restricted to the administrator's public IP using an Azure NSG.
-
-Because Shuffle Cloud originates from a different network, the request timed out.
-
-Temporarily allowing Shuffle access to port `9000` changed the error from:
+Once network connectivity was corrected, the response changed from:
 
 ```text
 Timeout
@@ -742,205 +398,112 @@ Timeout
 to:
 
 ```text
-HTTP 401 Authentication failure
+HTTP 401
 ```
 
-This confirmed that the networking layer had been fixed and that authentication was the next issue.
+This confirmed that networking was fixed and authentication was the remaining problem.
 
----
-
-## TheHive API Authentication
-
-After network connectivity was established, TheHive returned:
-
-```text
-401 Authentication failure
-```
-
-API key authentication was verified in TheHive.
-
-The correct SOAR service account API key was then configured in Shuffle.
-
-The final result was:
+After configuring the correct API authentication:
 
 ```text
 HTTP 201 Created
 ```
 
-confirming that Shuffle successfully authenticated and created the TheHive alert.
+confirmed successful alert creation.
 
----
-
-## Resource Optimization
-
-The TheHive Azure VM had limited memory available because Elasticsearch and Cassandra both run on Java.
-
-Elasticsearch initially consumed several gigabytes of heap memory.
-
-The Elasticsearch heap was tuned for the lab environment to reduce memory usage and leave enough resources for:
+This demonstrated the value of troubleshooting integrations layer-by-layer:
 
 ```text
-Cassandra
-Elasticsearch
-TheHive
-Ubuntu
+Network → Authentication → API → Application
 ```
-
-This provided practical experience troubleshooting Linux memory utilization and JVM heap configuration.
 
 ---
 
 # Skills Demonstrated
 
-## Security Operations
-
+### Security Operations
 - SIEM monitoring
-- Endpoint telemetry
+- Endpoint telemetry analysis
 - Threat detection
 - Threat hunting
 - IOC enrichment
-- Incident management
 - Alert escalation
 - SOAR automation
 
-## Detection Engineering
-
+### Detection Engineering
 - Sysmon
 - Wazuh custom rules
 - Windows Event Logs
 - MITRE ATT&CK mapping
 - Regex
-- Process telemetry
 - Detection validation
 
-## Cloud and Networking
-
+### Cloud & Networking
 - Microsoft Azure
 - Azure Network Security Groups
-- Cloud virtual machines
-- TCP/IP
+- TCP/IP troubleshooting
 - Firewall rules
-- Public/private connectivity
-- Port troubleshooting
+- Cloud virtual machines
 
-## Systems Administration
-
-- Ubuntu Linux
+### Systems Administration
 - Windows 10
+- Ubuntu Linux
 - SSH
 - systemd
-- File permissions
-- Windows ACLs
-- Service management
-- JVM memory tuning
+- Linux file permissions
+- Service troubleshooting
 
-## Integration and Automation
-
+### Automation & Integration
 - REST APIs
 - JSON
 - XML
 - Webhooks
-- API keys
+- API authentication
+- Shuffle
 - VirusTotal
 - TheHive
-- Shuffle SOAR
 
 ---
 
 # Security Considerations
 
-This environment was created for educational and defensive cybersecurity purposes.
+This project was created for **defensive cybersecurity education and testing inside an isolated lab environment**.
 
 Sensitive information is intentionally excluded from this repository.
 
-The following should **never** be committed to GitHub:
+The following should never be committed:
 
 ```text
 API keys
 Passwords
-Shuffle webhook URLs
+Webhook URLs
 SSH private keys
-Session cookies
 Authentication tokens
+Session cookies
 Azure credentials
 ```
 
-The project used some temporary configurations while building and testing the environment.
+During testing, TheHive TCP `9000` was temporarily made publicly reachable so Shuffle Cloud could access the API.
 
-For example, TheHive TCP port `9000` was temporarily made publicly reachable so that Shuffle Cloud could communicate with the API.
-
-This configuration is acceptable for temporary lab testing but should **not** be considered a production deployment.
+This was a temporary lab configuration and should **not** be considered suitable for a production environment.
 
 ---
 
 # Future Improvements
 
-Potential improvements include:
-
 - Configure HTTPS for TheHive
 - Place TheHive behind an Nginx reverse proxy
 - Remove direct public exposure of TCP 9000
-- Deploy a private Shuffle runtime
-- Further restrict Azure NSG rules
-- Store integration secrets using secure secret management
-- Improve the Mimikatz detection beyond filename matching
-- Detect renamed credential dumping tools
-- Add hash-based detection
-- Add behavioral detection rules
+- Use more restrictive Azure NSG rules
+- Implement secure secret management
+- Add behavioral detection beyond filename matching
+- Detect renamed credential-dumping tools
 - Add additional MITRE ATT&CK detections
-- Automatically add observables to TheHive
-- Include VirusTotal enrichment results directly inside TheHive alerts
+- Add observables automatically to TheHive
+- Include VirusTotal enrichment data directly in TheHive alerts
 - Add additional Windows endpoints
-- Create additional Wazuh dashboards
+- Build additional Wazuh dashboards
 - Implement controlled automated response actions
-
----
-
-# Key Takeaways
-
-This project demonstrated how individual cybersecurity technologies can be connected into a functional SOC workflow.
-
-Rather than simply installing security tools, the project integrated them into an end-to-end pipeline:
-
-```text
-Collect telemetry
-      ↓
-Detect suspicious behavior
-      ↓
-Generate SIEM alert
-      ↓
-Extract IOC
-      ↓
-Enrich IOC
-      ↓
-Create investigation alert
-      ↓
-Notify SOC analyst
-```
-
-The project also reinforced the importance of troubleshooting security infrastructure layer-by-layer.
-
-Instead of assuming that a missing dashboard event meant telemetry was lost, each layer of the pipeline was independently verified:
-
-```text
-Endpoint
-   ↓
-Sysmon
-   ↓
-Wazuh Agent
-   ↓
-Wazuh Manager
-   ↓
-Archive Logs
-   ↓
-Filebeat
-   ↓
-Indexer
-   ↓
-Dashboard
-```
-
-This troubleshooting approach helped identify issues involving networking, permissions, indexing, time ranges, API authentication, and workflow configuration.
 
 ---
 
@@ -952,6 +515,9 @@ soc-automation-lab/
 ├── README.md
 ├── LICENSE
 │
+├── docs/
+│   └── architecture.md
+│
 ├── screenshots/
 │   ├── 00-architecture.png
 │   ├── 01-wazuh-agent-active.png
@@ -962,17 +528,28 @@ soc-automation-lab/
 │   ├── 06-thehive-alert.png
 │   └── 07-email-notification.png
 │
-├── wazuh/
-│   └── local_rules.xml
-│
-└── docs/
-    └── architecture.md
+└── wazuh/
+    └── local_rules.xml
 ```
+
+More detailed architecture documentation is available in:
+
+[`docs/architecture.md`](docs/architecture.md)
+
+---
+
+## Key Takeaway
+
+This project demonstrates how endpoint telemetry, SIEM detection, threat intelligence, SOAR automation, and alert management can be integrated into a functional SOC pipeline.
+
+Rather than configuring each technology independently, the lab connects them into an end-to-end workflow:
+
+**Collect → Detect → Enrich → Investigate → Notify**
 
 ---
 
 ## Disclaimer
 
-This project was performed inside an isolated lab environment for cybersecurity education and defensive security testing.
+This project was performed in an isolated lab environment for cybersecurity education and defensive security testing.
 
 All testing was performed against systems owned and controlled by the author.
